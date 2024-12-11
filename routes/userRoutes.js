@@ -1,28 +1,68 @@
 const Route = require("express");
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 const userModel = require("../models/userSchema");
-
+const authMiddleware = require("../auth-middleware");
 const userRoute = Route();
 
 userRoute.post("/signup", async (req, res) => {
-  const { username, password, email, profileImage } = req.body;
+  const { username, password, email } = req.body;
   try {
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
     const response = await userModel.create({
       username,
-      password,
+      password: hashedPassword,
       email,
-      profileImage,
     });
-    res.status(200).json(response);
+
+    const token = jwt.sign(
+      { userId: response._id, username: response.username },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+
+    res.status(201).json({
+      user: {
+        id: response._id,
+        username: response.username,
+        email: response.email,
+        profileImage: response.profileImage,
+      },
+      token,
+    });
   } catch (error) {
-    res.status(500).json(error);
+    res.status(500).json({ message: "Error signing up user", error });
   }
 });
 
-userRoute.get("/user/posts", async (req, res) => {
+userRoute.post("/login", async (req, res) => {
+  const { password, email } = req.body;
+
   try {
-    const posts = await userModel.find().populate("posts", "caption postImage");
-    res.status(200).json(posts);
-  } catch (error) {}
+    const user = await userModel.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: "Invalid password" });
+    }
+
+    const token = jwt.sign(
+      { id: user._id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+
+    return res.status(200).json({ message: "Login successful", token });
+  } catch (error) {
+    return res.status(500).json({ message: `Login failed, ${error.message}` });
+  }
 });
 
 userRoute.post("/user/follow", async (req, res) => {

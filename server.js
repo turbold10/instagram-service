@@ -5,12 +5,14 @@ const userRoute = require("./routes/userRoutes");
 const postRoute = require("./routes/postRoutes");
 const likeRoute = require("./routes/likeRoutes");
 const cors = require("cors");
+const { commentRoute } = require("./routes/commentRoute");
 
 dotenv.config();
+const PORT = 8080;
+
 const app = express();
 app.use(cors());
 
-const PORT = 8080;
 app.use(express.json());
 
 const connectToDB = async () => {
@@ -26,5 +28,6 @@ connectToDB();
 app.use(userRoute);
 app.use(postRoute);
 app.use(likeRoute);
+app.use(commentRoute);
 
 app.listen(PORT, console.log(`your server is running on port: ${PORT}`));
